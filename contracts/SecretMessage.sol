@@ -4,21 +4,10 @@ pragma solidity ^0.8.9;
 
 import "./base/UniversalChanIbcApp.sol";
 
-contract XCounterUC is UniversalChanIbcApp {
-    // application specific state
-    uint64 public counter;
-    mapping(uint64 => address) public counterMap;
+contract SecretMessage is UniversalChanIbcApp {
+    event LogAcknowledgement(string message);
 
     constructor(address _middleware) UniversalChanIbcApp(_middleware) {}
-
-    // application specific logic
-    function resetCounter() internal {
-        counter = 0;
-    }
-
-    function increment() internal {
-        counter++;
-    }
 
     // IBC logic
 
@@ -29,8 +18,7 @@ contract XCounterUC is UniversalChanIbcApp {
      * @param timeoutSeconds The timeout in seconds (relative).
      */
     function sendUniversalPacket(address destPortAddr, bytes32 channelId, uint64 timeoutSeconds) external {
-        increment();
-        bytes memory payload = abi.encode(msg.sender, counter);
+        bytes memory payload = abi.encode(msg.sender, "crossChainQuery");
 
         uint64 timeoutTimestamp = uint64((block.timestamp + timeoutSeconds) * 1000000000);
 
@@ -54,12 +42,7 @@ contract XCounterUC is UniversalChanIbcApp {
     {
         recvedPackets.push(UcPacketWithChannel(channelId, packet));
 
-        (address payload, uint64 c) = abi.decode(packet.appData, (address, uint64));
-        counterMap[c] = payload;
-
-        increment();
-
-        return AckPacket(true, abi.encode(counter));
+        return AckPacket(true, abi.encode(0));
     }
 
     /**
@@ -78,11 +61,9 @@ contract XCounterUC is UniversalChanIbcApp {
         ackPackets.push(UcAckWithChannel(channelId, packet, ack));
 
         // decode the counter from the ack packet
-        (uint64 _counter) = abi.decode(ack.data, (uint64));
+        (string memory _secretMessage) = abi.decode(ack.data, (string));
 
-        if (_counter != counter) {
-            resetCounter();
-        }
+        emit LogAcknowledgement(_secretMessage);
     }
 
     /**
